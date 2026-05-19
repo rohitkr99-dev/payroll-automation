@@ -17,11 +17,14 @@ def process_payroll(file):
     employees = []
     current_emp = None
 
+    all_dates = set()
+
+    # READ RAW DATA
     for _, row in raw.iterrows():
 
         first = row[0]
 
-        # employee row
+        # Employee row
         if isinstance(first, str) and "Mr." in first:
 
             parts = first.strip().split(" ", 1)
@@ -38,7 +41,7 @@ def process_payroll(file):
             employees.append(current_emp)
             continue
 
-        # date row
+        # Date row
         if current_emp and isinstance(first, str) and "/" in first:
 
             try:
@@ -68,9 +71,14 @@ def process_payroll(file):
 
             current_emp["days"][dt.day] = punches
 
+            all_dates.add(dt.day)
+
+    sorted_dates = sorted(all_dates)
+
     summary_rows = []
     issue_rows = []
 
+    # PROCESS EMPLOYEES
     for emp in employees:
 
         for row_type in ["NH", "FOT", "EOT", "DETAILS"]:
@@ -81,7 +89,7 @@ def process_payroll(file):
                 "Type": row_type
             }
 
-            for d in sorted(emp["days"].keys()):
+            for d in sorted_dates:
 
                 punches = emp["days"].get(d, [])
 
@@ -94,7 +102,7 @@ def process_payroll(file):
 
                     issues = []
 
-                    # single punch handling
+                    # SINGLE PUNCH HANDLING
                     if len(punches) == 1:
 
                         if first_in < time(12, 0):
@@ -113,7 +121,7 @@ def process_payroll(file):
 
                             first_in = time(8, 0)
 
-                    # early in
+                    # EARLY IN RULE
                     if first_in <= time(7, 0):
 
                         issues.append(
@@ -122,7 +130,7 @@ def process_payroll(file):
 
                         first_in = time(8, 0)
 
-                    # extra ot
+                    # EXTRA OT RULE
                     eot = 0
 
                     out_minutes = (
@@ -136,7 +144,7 @@ def process_payroll(file):
                             (out_minutes - 18 * 60) // 60
                         )
 
-                    # row types
+                    # ROW TYPES
                     if row_type == "NH":
                         value = 8
 
@@ -154,6 +162,7 @@ def process_payroll(file):
                         )
 
                         if issues:
+
                             value += " | " + "; ".join(issues)
 
                             issue_rows.append({
@@ -191,15 +200,22 @@ def process_payroll(file):
 
     return output
 
+# MAIN APP
 if uploaded_file:
 
     st.success("File uploaded successfully")
 
-    result = process_payroll(uploaded_file)
+    try:
 
-    st.download_button(
-        label="Download Payroll Report",
-        data=result,
-        file_name="payroll_report.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        result = process_payroll(uploaded_file)
+
+        st.download_button(
+            label="Download Payroll Report",
+            data=result,
+            file_name="payroll_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except Exception as e:
+
+        st.error(f"Error processing file: {str(e)}")
