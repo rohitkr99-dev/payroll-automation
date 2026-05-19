@@ -81,7 +81,7 @@ def process_payroll(file):
                 "Type": row_type
             }
 
-            for d in range(1, 16):
+            for d in sorted(emp["days"].keys()):
 
                 punches = emp["days"].get(d, [])
 
